@@ -1,10 +1,31 @@
 #include <stdio.h>
+#include <string.h>
 #include <fcntl.h>
 #include <termios.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/ioctl.h> //ioctl() call defenitions
+#include <time.h>
 
 struct termios SerialPortSettings;
+char pilih, dpilih;
+
+void msleep(long msec) {
+    struct timespec ts;
+    int res;
+
+    if (msec < 0){
+        errno = EINVAL;
+    }
+
+    ts.tv_sec = msec / 1000;
+    ts.tv_nsec = (msec % 1000) * 1000000;
+
+    do {
+        res = nanosleep(&ts, &ts);
+    } while (res && errno == EINTR);
+
+}
 
 void main()
 {
@@ -14,8 +35,61 @@ void main()
     if (fd == -1) {
         printf("\n Error! in Opening ttyUSB1\n");
     }else{
-        char pilih;
-        printf("\n ttyUSB1 Opcened Successfully pilih metode? r/w: ");scanf("%c", &pilih);
+        printf("\nttyUSB1 Opcened Successfully\n\n");
+        printf("Pilih metode read/write/data? r/w/d: ");scanf("%c", &pilih);
+
+        if (pilih == 'd') {
+            printf("\n +----------------------------------+");
+            printf("\n |        Serial Port Data         |");
+            printf("\n +----------------------------------+\n");
+
+            char dpilih[20];
+            printf("Enter input/output? i/o: ");scanf("%s", dpilih);
+
+            int flag, random;
+            random = 0;
+            if (strcmp(dpilih, "i") == 0) 
+            {
+                char dpilihpin[20];
+                int s, dat;
+                printf("Enter pin? CTS/DSR: ");scanf("%s", dpilihpin);
+
+                if (strcmp(dpilihpin, "CTS") == 0)
+                    flag = TIOCM_CTS;
+                else if (strcmp(dpilihpin, "DSR") == 0) 
+                    flag = TIOCM_DSR;
+
+                while (1) {
+                    ioctl(fd, TIOCMGET, &s);
+                    dat = (s & flag);
+
+                    printf("Monitor data: %d\n", dat);
+                    msleep(500);
+                }
+            }
+            else if (strcmp(dpilih, "o") == 0) 
+            {
+                char dpilihpin[20];
+                printf("Enter pin? RTS/DTR: ");scanf("%s", dpilihpin);
+
+                if (strcmp(dpilihpin, "RTS") == 0)
+                    flag = TIOCM_RTS;
+                else if (strcmp(dpilihpin, "DTR") == 0) 
+                    flag = TIOCM_DTR;
+
+                while (1) {
+                    printf("data: %d\n", random);
+
+                    ioctl(fd, TIOCMBIS, &flag);//Set RTS pin
+                    msleep(500);
+                    ioctl(fd, TIOCMBIC, &flag);//Clear RTS pin
+                    msleep(500);
+                    random++;
+                }
+            }
+
+            close(fd);
+        }
 
         if (pilih == 'w') {
             printf("\n +----------------------------------+");
